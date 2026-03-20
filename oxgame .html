@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OX Ultimate Final</title>
+
+<style>
+body{
+margin:0;
+font-family:Arial;
+background:linear-gradient(135deg,#0f2027,#203a43,#2c5364);
+display:flex;
+justify-content:center;
+align-items:center;
+height:100vh;
+color:white;
+}
+
+.container{text-align:center;}
+
+.board{
+display:grid;
+grid-template-columns:repeat(3,90px);
+gap:10px;
+justify-content:center;
+margin-top:20px;
+position:relative;
+}
+
+.cell{
+height:90px;width:90px;
+border:2px solid cyan;
+display:flex;
+justify-content:center;
+align-items:center;
+font-size:40px;
+border-radius:14px;
+cursor:pointer;
+transition:.3s;
+}
+
+.cell:hover{background:#00ffff22;transform:scale(1.05);}
+.cell:active{transform:scale(.9);}
+
+button{
+margin:5px;
+padding:10px 18px;
+border:2px solid cyan;
+background:transparent;
+color:white;
+border-radius:25px;
+cursor:pointer;
+transition:.3s;
+}
+
+button:hover{background:cyan;color:black;}
+button:active{transform:scale(.9);}
+
+svg{
+position:absolute;
+top:0;
+left:0;
+pointer-events:none;
+}
+
+/* SOLID AI POPUP */
+#aiMenu{
+display:none;
+position:absolute;
+top:60px;
+left:50%;
+transform:translateX(-50%) scale(.8);
+background:#0f2027;
+border:2px solid cyan;
+border-radius:18px;
+padding:15px;
+box-shadow:0 0 25px cyan;
+z-index:999;
+transition:.25s;
+}
+
+#aiMenu button{
+width:130px;
+margin:6px;
+}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+<h2>🔥 OX GAME</h2>
+<div id="status">Choose Mode</div>
+
+<button onclick="two()">👥 2 Player</button>
+
+<div style="position:relative;display:inline-block">
+<button onclick="toggleAI()">🎮 AI Difficulties</button>
+
+<div id="aiMenu">
+<button onclick="setAI('easy')">Easy</button><br>
+<button onclick="setAI('medium')">Medium</button><br>
+<button onclick="setAI('hard')">Hard</button>
+</div>
+</div>
+
+<div class="board" id="board">
+
+<svg width="290" height="290">
+<line id="winLine"
+x1="0" y1="0" x2="0" y2="0"
+stroke="white"
+stroke-width="6"
+stroke-linecap="round"
+style="filter:drop-shadow(0 0 10px white);
+transition:all .5s ease"/>
+</svg>
+
+</div>
+
+<button onclick="restart()">🔄 Restart</button>
+</div>
+
+<script>
+
+let ctx=new (window.AudioContext||window.webkitAudioContext)();
+
+function clickSound(){
+let o=ctx.createOscillator();
+let g=ctx.createGain();
+o.connect(g);
+g.connect(ctx.destination);
+o.frequency.value=500;
+o.start();
+g.gain.exponentialRampToValueAtTime(0.0001,ctx.currentTime+0.15);
+}
+
+function winSound(){
+let o=ctx.createOscillator();
+let g=ctx.createGain();
+o.connect(g);
+g.connect(ctx.destination);
+o.frequency.value=900;
+o.start();
+g.gain.exponentialRampToValueAtTime(0.0001,ctx.currentTime+0.4);
+}
+
+function toggleAI(){
+let m=document.getElementById("aiMenu");
+
+if(m.style.display=="block"){
+m.style.transform="translateX(-50%) scale(.8)";
+setTimeout(()=>m.style.display="none",200);
+}else{
+m.style.display="block";
+setTimeout(()=>{
+m.style.transform="translateX(-50%) scale(1)";
+},10);
+}
+}
+
+let b=["","","","","","","","",""];
+let p="X";
+let game=true;
+let mode="";
+let aiLevel="easy";
+
+const board=document.getElementById("board");
+const status=document.getElementById("status");
+const line=document.getElementById("winLine");
+
+function draw(){
+board.querySelectorAll(".cell").forEach(e=>e.remove());
+
+b.forEach((v,i)=>{
+let c=document.createElement("div");
+c.className="cell";
+c.innerText=v;
+c.onclick=()=>move(i);
+board.appendChild(c);
+});
+}
+
+function move(i){
+if(!mode||b[i]||!game)return;
+
+clickSound();
+b[i]=p;
+check();
+
+if(mode=="ai" && game){
+p="O";
+setTimeout(aiMove,300);
+}else{
+p=p=="X"?"O":"X";
+}
+
+draw();
+}
+
+function aiMove(){
+
+let moveIndex;
+
+if(aiLevel=="easy"){
+let e=b.map((v,i)=>v==""?i:null).filter(v=>v!=null);
+moveIndex=e[Math.floor(Math.random()*e.length)];
+}
+
+if(aiLevel=="medium"){
+moveIndex=bestMove(0.5);
+}
+
+if(aiLevel=="hard"){
+moveIndex=bestMove(1);
+}
+
+b[moveIndex]="O";
+clickSound();
+check();
+p="X";
+draw();
+}
+
+function bestMove(power){
+
+let empty=b.map((v,i)=>v==""?i:null).filter(v=>v!=null);
+
+if(Math.random()>power){
+return empty[Math.floor(Math.random()*empty.length)];
+}
+
+for(let i of empty){
+b[i]="O";
+if(winCheck("O")){b[i]="";return i;}
+b[i]="";
+}
+
+for(let i of empty){
+b[i]="X";
+if(winCheck("X")){b[i]="";return i;}
+b[i]="";
+}
+
+return empty[Math.floor(Math.random()*empty.length)];
+}
+
+function winCheck(pl){
+const w=[[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+return w.some(c=>c.every(i=>b[i]==pl));
+}
+
+function check(){
+
+const wins=[
+[0,1,2,0,45,290,45],
+[3,4,5,0,145,290,145],
+[6,7,8,0,245,290,245],
+[0,3,6,45,0,45,290],
+[1,4,7,145,0,145,290],
+[2,5,8,245,0,245,290],
+[0,4,8,0,0,290,290],
+[2,4,6,290,0,0,290]
+];
+
+for(let w of wins){
+let[a,b1,c,x1,y1,x2,y2]=w;
+
+if(b[a] && b[a]==b[b1] && b[a]==b[c]){
+status.innerText=b[a]+" Wins 🎉";
+winSound();
+game=false;
+
+setTimeout(()=>{
+line.setAttribute("x1",x1);
+line.setAttribute("y1",y1);
+line.setAttribute("x2",x2);
+line.setAttribute("y2",y2);
+},60);
+
+return;
+}
+}
+
+if(!b.includes("")){
+status.innerText="Draw 🤝";
+game=false;
+}
+}
+
+function restart(){
+b=["","","","","","","","",""];
+p="X";
+game=true;
+status.innerText="Restarted";
+line.setAttribute("x1",0);
+line.setAttribute("y1",0);
+line.setAttribute("x2",0);
+line.setAttribute("y2",0);
+draw();
+document.getElementById("aiMenu").style.display="none";
+}
+
+function two(){mode="two";restart();}
+function setAI(level){mode="ai";aiLevel=level;restart();}
+
+draw();
+
+</script>
+</body>
+</html>
